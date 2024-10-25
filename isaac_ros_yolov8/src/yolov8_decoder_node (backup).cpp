@@ -72,8 +72,10 @@ void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTen
   std::vector<int> indices;
   std::vector<int> classes;
 
-  //  Output dimensions = [1, 84, 8400]
-  int num_classes = 80;
+  // //  Output dimensions = [1, 80 + 4, 8400]
+  // int num_classes = 80;
+  //  Output dimensions = [1, 2 + 4, 8400]
+  int num_classes = 2;
   int out_dim = 8400;
   float * results_data = reinterpret_cast<float *>(results_vector.data());
 
@@ -110,37 +112,98 @@ void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTen
 
   vision_msgs::msg::Detection2DArray final_detections_arr;
 
+  // for (size_t i = 0; i < indices.size(); i++) {
+  //   int ind = indices[i];
+  //   vision_msgs::msg::Detection2D detection;
+
+  //   geometry_msgs::msg::Pose center;
+  //   geometry_msgs::msg::Point position;
+  //   geometry_msgs::msg::Quaternion orientation;
+
+  //   // 2D object Bbox
+  //   vision_msgs::msg::BoundingBox2D bbox;
+  //   float scale_factor = 2.0; // Example scaling factor, you can adjust this value
+
+  //   // Original width and height
+  //   float w = bboxes[ind].width;
+  //   float h = bboxes[ind].height;
+
+  //   // Calculate the scaled width and height
+  //   float scaled_w = w * scale_factor;
+  //   float scaled_h = h * scale_factor;
+
+  //   // Keep the center the same, adjust the bounding box size
+  //   float x_center = bboxes[ind].x + (0.5 * w);
+  //   float y_center = bboxes[ind].y + (0.5 * h);
+
+  //   detection.bbox.center.position.x = x_center;
+  //   detection.bbox.center.position.y = y_center;
+  //   detection.bbox.size_x = scaled_w;
+  //   detection.bbox.size_y = scaled_h;
+
+
+
+  //   // Class probabilities
+  //   vision_msgs::msg::ObjectHypothesisWithPose hyp;
+  //   hyp.hypothesis.class_id = std::to_string(classes.at(ind));
+  //   hyp.hypothesis.score = scores.at(ind);
+  //   detection.results.push_back(hyp);
+
+  //   detection.header.stamp.sec = msg.GetTimestampSeconds();
+  //   detection.header.stamp.nanosec = msg.GetTimestampNanoseconds();
+
+  //   final_detections_arr.detections.push_back(detection);
+  // }
+
   for (size_t i = 0; i < indices.size(); i++) {
-    int ind = indices[i];
-    vision_msgs::msg::Detection2D detection;
+      int ind = indices[i];
+      int class_id = classes.at(ind);
 
-    geometry_msgs::msg::Pose center;
-    geometry_msgs::msg::Point position;
-    geometry_msgs::msg::Quaternion orientation;
+      // Only process and publish detections with the desired class_id
+      // class ids: 
+      // 0: 'Unripe tomato',
+      // 1: 'Ripe tomato',
+      if (class_id == 1) {
+          vision_msgs::msg::Detection2D detection;
 
-    // 2D object Bbox
-    vision_msgs::msg::BoundingBox2D bbox;
-    float w = bboxes[ind].width;
-    float h = bboxes[ind].height;
-    float x_center = bboxes[ind].x + (0.5 * w);
-    float y_center = bboxes[ind].y + (0.5 * h);
-    detection.bbox.center.position.x = x_center;
-    detection.bbox.center.position.y = y_center;
-    detection.bbox.size_x = w;
-    detection.bbox.size_y = h;
+          geometry_msgs::msg::Pose center;
+          geometry_msgs::msg::Point position;
+          geometry_msgs::msg::Quaternion orientation;
 
+          // 2D object Bbox
+          vision_msgs::msg::BoundingBox2D bbox;
+          float scale_factor = 1.5; // 1.0, 1.5, 2.0
 
-    // Class probabilities
-    vision_msgs::msg::ObjectHypothesisWithPose hyp;
-    hyp.hypothesis.class_id = std::to_string(classes.at(ind));
-    hyp.hypothesis.score = scores.at(ind);
-    detection.results.push_back(hyp);
+          // Original width and height
+          float w = bboxes[ind].width;
+          float h = bboxes[ind].height;
 
-    detection.header.stamp.sec = msg.GetTimestampSeconds();
-    detection.header.stamp.nanosec = msg.GetTimestampNanoseconds();
+          // Calculate the scaled width and height
+          float scaled_w = w * scale_factor;
+          float scaled_h = h * scale_factor;
 
-    final_detections_arr.detections.push_back(detection);
+          // Keep the center the same, adjust the bounding box size
+          float x_center = bboxes[ind].x + (0.5 * w);
+          float y_center = bboxes[ind].y + (0.5 * h);
+
+          detection.bbox.center.position.x = x_center;
+          detection.bbox.center.position.y = y_center;
+          detection.bbox.size_x = scaled_w;
+          detection.bbox.size_y = scaled_h;
+
+          // Class probabilities
+          vision_msgs::msg::ObjectHypothesisWithPose hyp;
+          hyp.hypothesis.class_id = std::to_string(class_id);
+          hyp.hypothesis.score = scores.at(ind);
+          detection.results.push_back(hyp);
+
+          detection.header.stamp.sec = msg.GetTimestampSeconds();
+          detection.header.stamp.nanosec = msg.GetTimestampNanoseconds();
+
+          final_detections_arr.detections.push_back(detection);
+      }
   }
+
 
   final_detections_arr.header.stamp.sec = msg.GetTimestampSeconds();
   final_detections_arr.header.stamp.nanosec = msg.GetTimestampNanoseconds();
